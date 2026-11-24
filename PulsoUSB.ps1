@@ -420,6 +420,9 @@ function Get-OpText($v) {
 
 function Get-YesNo($b) { if ($b) { 'Sí' } else { 'No' } }
 
+# Algunos controladores USB devuelven el n.º de serie con caracteres de control o no imprimibles
+function Get-CleanSerial($d) { ("$($d.SerialNumber)" -replace '[^\x21-\x7E]', '').Trim() }
+
 function Get-UsbDisks {
     @(Get-Disk -ErrorAction SilentlyContinue | Where-Object { "$($_.BusType)" -in @('USB', 'SD', 'MMC', '7', '12', '13') } | Sort-Object Number)
 }
@@ -437,7 +440,7 @@ function Get-DeviceSignature {
 }
 
 function Get-TestKey($d) {
-    $sn = "$($d.SerialNumber)".Trim()
+    $sn = Get-CleanSerial $d
     if ($sn) { return "SN:$sn" }
     return "N:$($d.Number)"
 }
@@ -1060,7 +1063,7 @@ function Update-DiskList {
             [void]$dtDisks.Rows.Add(
                 "$($d.Number)", "$($d.FriendlyName)", (Format-Size $d.Size), "$($d.PartitionStyle)",
                 (Get-HealthText $d.HealthStatus), (Get-OpText $d.OperationalStatus), (Get-YesNo $d.IsReadOnly),
-                $letters, "$($d.SerialNumber)".Trim())
+                $letters, (Get-CleanSerial $d))
         }
         $script:Signature = Get-DeviceSignature
         Set-DiskRowColors
@@ -1301,7 +1304,7 @@ function Show-Health($h, [int]$n) {
 
     Add-Rtb 'INFORMACIÓN DEL DISPOSITIVO' $C_HEAD -Bold
     Add-Rtb "  Modelo:`t$($d.FriendlyName)"
-    Add-Rtb "  N.º de serie:`t$("$($d.SerialNumber)".Trim())"
+    Add-Rtb "  N.º de serie:`t$(Get-CleanSerial $d)"
     Add-Rtb "  Firmware:`t$($d.FirmwareVersion)"
     Add-Rtb "  Bus:`t$($d.BusType)"
     Add-Rtb ("  Capacidad:`t{0}  ({1:N0} bytes)" -f (Format-Size $d.Size), $d.Size)
