@@ -16,9 +16,9 @@ using System.Management.Automation.Runspaces;
 [assembly: AssemblyProduct("PulsoUSB")]
 [assembly: AssemblyCompany("aarneth")]
 [assembly: AssemblyCopyright("© 2026 aarneth")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyInformationalVersion("1.0.1")]
 
 static class Program
 {

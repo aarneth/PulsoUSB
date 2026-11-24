@@ -1,5 +1,5 @@
 ﻿<#
-    PulsoUSB v1.0.0 - Gestor de Salud USB
+    PulsoUSB v1.0.1 - Gestor de Salud USB
     https://github.com/aarneth/PulsoUSB
     ---------------------------------------------------------------
     Diagnóstico y administración de unidades de almacenamiento USB.
@@ -17,7 +17,7 @@
 #>
 
 $script:AppName = 'PulsoUSB'
-$script:AppVersion = '1.0.0'
+$script:AppVersion = '1.0.1'
 
 # ------------------------------------------------------------------
 #  Elevación a administrador

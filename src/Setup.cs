@@ -15,14 +15,14 @@ using Microsoft.Win32;
 [assembly: AssemblyProduct("PulsoUSB")]
 [assembly: AssemblyCompany("aarneth")]
 [assembly: AssemblyCopyright("© 2026 aarneth")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("1.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyInformationalVersion("1.0.1")]
 
 static class Setup
 {
     public const string AppName = "PulsoUSB";
-    public const string Version = "1.0.0";
+    public const string Version = "1.0.1";
     public const string Publisher = "aarneth";
     public const string Url = "https://github.com/aarneth/PulsoUSB";
     const string UninstKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PulsoUSB";
