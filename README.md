@@ -5,6 +5,14 @@
 **Tómale el pulso a tus memorias USB.** Diagnóstico de salud, prueba de integridad (detecta memorias **falsas** o dañadas), formato y particiones para unidades USB, SD y discos externos.
 Compatible con **Windows 10 (1703+) y Windows 11**.
 
+## Capturas de pantalla
+
+![Ventana principal de PulsoUSB con el estado de salud de una memoria USB](docs/screenshots/principal.png)
+
+| Prueba de velocidad e integridad | Formatear disco completo |
+|---|---|
+| ![Diálogo de la prueba de velocidad e integridad](docs/screenshots/prueba-integridad.png) | ![Diálogo para formatear el disco completo](docs/screenshots/formatear-disco.png) |
+
 ## Descarga
 En [**Releases**](https://github.com/aarneth/PulsoUSB/releases/latest) hay dos opciones:
 

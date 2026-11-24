@@ -358,6 +358,7 @@ $script:FontNormal = New-Object System.Drawing.Font('Segoe UI', 9)
 $script:FontBold   = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 $script:FontTitle  = New-Object System.Drawing.Font('Segoe UI', 12, [System.Drawing.FontStyle]::Bold)
 $script:FontMono   = New-Object System.Drawing.Font('Consolas', 9)
+$script:FontSymbol = New-Object System.Drawing.Font('Segoe UI Symbol', 9)
 
 $script:SelDisk      = $null
 $script:Binding      = $false
@@ -947,7 +948,7 @@ $splitMain.Panel2.Padding = New-Object System.Windows.Forms.Padding((S 6), 0, (S
 
 # --- Barra superior
 $pnlTop = New-Object System.Windows.Forms.FlowLayoutPanel
-$pnlTop.Dock = 'Top'; $pnlTop.AutoSize = $true; $pnlTop.Padding = New-Object System.Windows.Forms.Padding((S 4))
+$pnlTop.Dock = 'Top'; $pnlTop.AutoSize = $true; $pnlTop.AutoSizeMode = 'GrowAndShrink'; $pnlTop.Padding = New-Object System.Windows.Forms.Padding((S 4))
 
 function New-Btn([string]$Text, [scriptblock]$OnClick, [switch]$Action, [string]$Tip) {
     $b = New-Object System.Windows.Forms.Button
@@ -970,14 +971,14 @@ $pnlTop.Controls.AddRange(@($btnRefresh, $btnExport, $btnHelp, $chkAuto))
 
 # --- Barra de acciones
 $pnlActions = New-Object System.Windows.Forms.FlowLayoutPanel
-$pnlActions.Dock = 'Bottom'; $pnlActions.AutoSize = $true; $pnlActions.WrapContents = $true
+$pnlActions.Dock = 'Bottom'; $pnlActions.AutoSize = $true; $pnlActions.AutoSizeMode = 'GrowAndShrink'; $pnlActions.WrapContents = $true
 $pnlActions.Padding = New-Object System.Windows.Forms.Padding((S 4))
 
 function New-Group([string]$Title, [object[]]$Buttons) {
     $gb = New-Object System.Windows.Forms.GroupBox
     $gb.Text = $Title; $gb.AutoSize = $true; $gb.AutoSizeMode = 'GrowAndShrink'; $gb.Font = $script:FontBold
     $fl = New-Object System.Windows.Forms.FlowLayoutPanel
-    $fl.AutoSize = $true; $fl.WrapContents = $false; $fl.Location = New-Object System.Drawing.Point((S 6), (S 20))
+    $fl.AutoSize = $true; $fl.AutoSizeMode = 'GrowAndShrink'; $fl.WrapContents = $false; $fl.Location = New-Object System.Drawing.Point((S 6), (S 20))
     $fl.Font = $script:FontNormal
     foreach ($b in $Buttons) { $fl.Controls.Add($b) }
     $gb.Controls.Add($fl)
@@ -1032,7 +1033,7 @@ $pnlStatus.Controls.Add($btnCancel, 2, 0)
 # --- Registro
 $txtLog = New-Object System.Windows.Forms.TextBox
 $txtLog.Dock = 'Bottom'; $txtLog.Multiline = $true; $txtLog.ReadOnly = $true; $txtLog.ScrollBars = 'Vertical'
-$txtLog.Height = (S 120); $txtLog.Font = $script:FontMono; $txtLog.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 250)
+$txtLog.Height = (S 90); $txtLog.Font = $script:FontMono; $txtLog.BackColor = [System.Drawing.Color]::FromArgb(250, 250, 250)
 
 # Orden de acoplamiento: el control "Fill" primero, luego los bordes
 $form.Controls.Add($splitMain)
@@ -1052,7 +1053,7 @@ function Update-DiskList {
     try {
         $script:Form.Cursor = [System.Windows.Forms.Cursors]::WaitCursor
         $dtDisks.Rows.Clear()
-        $disks = Get-UsbDisks
+        $disks = @(Get-UsbDisks)
         foreach ($d in $disks) {
             $letters = @(Get-Partition -DiskNumber $d.Number -ErrorAction SilentlyContinue |
                 Where-Object { "$($_.DriveLetter)" -match '^[A-Z]$' } | ForEach-Object { "$($_.DriveLetter):" }) -join ' '
@@ -1151,11 +1152,21 @@ function Get-SelPartition {
 #  Salud
 # ------------------------------------------------------------------
 function Add-Rtb([string]$Text, [System.Drawing.Color]$Color = [System.Drawing.Color]::Black, [switch]$Bold) {
-    $rtb.SelectionStart = $rtb.TextLength
-    $rtb.SelectionLength = 0
-    $rtb.SelectionColor = $Color
-    $rtb.SelectionFont = if ($Bold) { $script:FontBold } else { $script:FontNormal }
-    $rtb.AppendText($Text + "`n")
+    $font = if ($Bold) { $script:FontBold } else { $script:FontNormal }
+    $parts = @(, @($Text, $font))
+    # Los iconos (✔ ✖ ⚠ ℹ) se dibujan con Segoe UI Symbol: Segoe UI no los incluye todos
+    $m = [regex]::Match($Text, '^(\s*)([✔✖⚠ℹ])(.*)$')
+    if ($m.Success) { $parts = @(@($m.Groups[1].Value, $font), @($m.Groups[2].Value, $script:FontSymbol), @($m.Groups[3].Value, $font)) }
+    foreach ($pt in $parts) {
+        if (-not $pt[0]) { continue }
+        $rtb.SelectionStart = $rtb.TextLength
+        $rtb.SelectionLength = 0
+        $rtb.SelectionTabs = [int[]]@((S 170))
+        $rtb.SelectionColor = $Color
+        $rtb.SelectionFont = $pt[1]
+        $rtb.AppendText($pt[0])
+    }
+    $rtb.AppendText("`n")
 }
 
 function Start-HealthAnalysis([int]$n) {
@@ -1289,16 +1300,16 @@ function Show-Health($h, [int]$n) {
     }
 
     Add-Rtb 'INFORMACIÓN DEL DISPOSITIVO' $C_HEAD -Bold
-    Add-Rtb "  Modelo:              $($d.FriendlyName)"
-    Add-Rtb "  N.º de serie:        $("$($d.SerialNumber)".Trim())"
-    Add-Rtb "  Firmware:            $($d.FirmwareVersion)"
-    Add-Rtb "  Bus:                 $($d.BusType)"
-    Add-Rtb ("  Capacidad:           {0}  ({1:N0} bytes)" -f (Format-Size $d.Size), $d.Size)
-    Add-Rtb "  Estilo de partición: $($d.PartitionStyle)"
-    Add-Rtb "  Particiones:         $($d.NumberOfPartitions)"
-    Add-Rtb "  Sin asignar:         $(Format-Size $d.LargestFreeExtent)"
-    if ($pd) { Add-Rtb "  Tipo de medio:       $($pd.MediaType)" }
-    if ($w)  { Add-Rtb "  ID de dispositivo:   $($w.PNPDeviceID)" }
+    Add-Rtb "  Modelo:`t$($d.FriendlyName)"
+    Add-Rtb "  N.º de serie:`t$("$($d.SerialNumber)".Trim())"
+    Add-Rtb "  Firmware:`t$($d.FirmwareVersion)"
+    Add-Rtb "  Bus:`t$($d.BusType)"
+    Add-Rtb ("  Capacidad:`t{0}  ({1:N0} bytes)" -f (Format-Size $d.Size), $d.Size)
+    Add-Rtb "  Estilo de partición:`t$($d.PartitionStyle)"
+    Add-Rtb "  Particiones:`t$($d.NumberOfPartitions)"
+    Add-Rtb "  Sin asignar:`t$(Format-Size $d.LargestFreeExtent)"
+    if ($pd) { Add-Rtb "  Tipo de medio:`t$($pd.MediaType)" }
+    if ($w)  { Add-Rtb "  ID de dispositivo:`t$($w.PNPDeviceID)" }
     if ($relLines.Count -gt 0) {
         Add-Rtb ''
         Add-Rtb 'CONTADORES DE CONFIABILIDAD' $C_HEAD -Bold
@@ -1318,11 +1329,11 @@ function Show-Health($h, [int]$n) {
         $r = $t.Result
         Add-Rtb ''
         Add-Rtb 'ÚLTIMA PRUEBA DE VELOCIDAD E INTEGRIDAD' $C_HEAD -Bold
-        Add-Rtb ("  Fecha:               {0:dd/MM/yyyy HH:mm}" -f $t.Date)
-        Add-Rtb ("  Datos verificados:   {0:N0} MB de {1:N0} MB escritos" -f ($r.BytesVerified / 1MB), ($r.BytesWritten / 1MB))
-        Add-Rtb ("  Escritura:           {0:N1} MB/s" -f $r.WriteMBps)
-        Add-Rtb ("  Lectura:             {0:N1} MB/s" -f $r.ReadMBps)
-        Add-Rtb ("  MB con errores:      {0:N0}" -f $r.BadBlocks)
+        Add-Rtb ("  Fecha:`t{0:dd/MM/yyyy HH:mm}" -f $t.Date)
+        Add-Rtb ("  Datos verificados:`t{0:N0} MB de {1:N0} MB escritos" -f ($r.BytesVerified / 1MB), ($r.BytesWritten / 1MB))
+        Add-Rtb ("  Escritura:`t{0:N1} MB/s" -f $r.WriteMBps)
+        Add-Rtb ("  Lectura:`t{0:N1} MB/s" -f $r.ReadMBps)
+        Add-Rtb ("  MB con errores:`t{0:N0}" -f $r.BadBlocks)
     }
     if (-not $t -and $max -lt 2) {
         Add-Rtb ''
@@ -1659,8 +1670,8 @@ $gridDisks.Add_DataBindingComplete({
     foreach ($c in $gridDisks.Columns) { $c.SortMode = 'NotSortable' }
 })
 $gridParts.Add_DataBindingComplete({
-    if ($gridParts.Columns.Contains('Partición')) { $gridParts.Columns['Partición'].FillWeight = 55 }
-    if ($gridParts.Columns.Contains('Letra')) { $gridParts.Columns['Letra'].FillWeight = 40 }
+    if ($gridParts.Columns.Contains('Partición')) { $gridParts.Columns['Partición'].FillWeight = 70; $gridParts.Columns['Partición'].MinimumWidth = (S 70) }
+    if ($gridParts.Columns.Contains('Letra')) { $gridParts.Columns['Letra'].FillWeight = 45; $gridParts.Columns['Letra'].MinimumWidth = (S 48) }
     foreach ($c in $gridParts.Columns) { $c.SortMode = 'NotSortable' }
 })
 
@@ -1682,7 +1693,7 @@ $timer.Add_Tick({
 
 $form.Add_Shown({
     try {
-        $splitMain.SplitterDistance = [int]($splitMain.Height * 0.36)
+        $splitMain.SplitterDistance = [int]($splitMain.Height * 0.26)
         $splitBottom.SplitterDistance = [int]($splitBottom.Width * 0.52)
     } catch {}
     Write-Log "$script:AppName iniciado. Detectando unidades USB..."
