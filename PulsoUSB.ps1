@@ -1,5 +1,6 @@
 ﻿<#
-    Gestor de Salud USB  v1.0
+    PulsoUSB v1.0.0 - Gestor de Salud USB
+    https://github.com/aarneth/PulsoUSB
     ---------------------------------------------------------------
     Diagnóstico y administración de unidades de almacenamiento USB.
     Compatible con Windows 10 (1703+) y Windows 11 - PowerShell 5.1
@@ -15,7 +16,8 @@
       - Exportar reporte
 #>
 
-$script:AppName = 'Gestor de Salud USB'
+$script:AppName = 'PulsoUSB'
+$script:AppVersion = '1.0.0'
 
 # ------------------------------------------------------------------
 #  Elevación a administrador
@@ -23,6 +25,7 @@ $script:AppName = 'Gestor de Salud USB'
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     try {
+        if (-not $PSCommandPath) { throw 'Ejecutado sin archivo de script (versión .exe sin elevar).' }
         Start-Process -FilePath 'powershell.exe' -Verb RunAs -WindowStyle Hidden -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Sta', '-WindowStyle', 'Hidden', '-File', "`"$PSCommandPath`"")
     } catch {
@@ -800,11 +803,18 @@ param($sync, $letter, $mode)
 $cargs = switch ($mode) { 'scan' { "$($letter):" } 'fix' { "$($letter): /f /x" } default { "$($letter): /r /x" } }
 $sync.Status = "Ejecutando chkdsk $cargs ..."
 $sync.Log.Enqueue("> chkdsk $cargs")
-& cmd.exe /c "chkdsk $cargs" 2>&1 | ForEach-Object {
-    $s = ("$_" -split "`r")[-1].Trim()
-    if ($s) { $sync.Log.Enqueue("  $s") }
+# Proceso oculto (sin ventana de consola, también cuando corre como .exe)
+$psi = New-Object System.Diagnostics.ProcessStartInfo 'cmd.exe', "/c chkdsk $cargs 2>&1"
+$psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $true
+$psi.StandardOutputEncoding = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+$pr = [System.Diagnostics.Process]::Start($psi)
+while ($null -ne ($line = $pr.StandardOutput.ReadLine())) {
+    $s = $line.Trim()
+    if (-not $s) { continue }
+    if ($s -match '\d+\s*%') { $sync.Status = "chkdsk: $s" } else { $sync.Log.Enqueue("  $s") }
 }
-$LASTEXITCODE
+$pr.WaitForExit()
+$pr.ExitCode
 '@
 
 $script:WriteProtScript = @'
@@ -820,7 +830,12 @@ try {
     foreach ($l in @($letters)) { if ($l) { $lines += "select volume $l"; $lines += 'attributes volume clear readonly' } }
     $f = [IO.Path]::GetTempFileName()
     Set-Content -Path $f -Value $lines -Encoding ASCII
-    & diskpart.exe /s $f 2>&1 | ForEach-Object { $s = "$_".Trim(); if ($s) { $sync.Log.Enqueue("  diskpart: $s") } }
+    $psi = New-Object System.Diagnostics.ProcessStartInfo 'diskpart.exe', "/s `"$f`""
+    $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true; $psi.RedirectStandardOutput = $true
+    $psi.StandardOutputEncoding = [Text.Encoding]::GetEncoding([Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)
+    $pr = [System.Diagnostics.Process]::Start($psi)
+    while ($null -ne ($line = $pr.StandardOutput.ReadLine())) { $s = $line.Trim(); if ($s) { $sync.Log.Enqueue("  diskpart: $s") } }
+    $pr.WaitForExit()
     Remove-Item $f -ErrorAction SilentlyContinue
     if ($fixReg) {
         $sync.Log.Enqueue('Desactivando WriteProtect en el registro (StorageDevicePolicies)...')
@@ -852,12 +867,17 @@ param($sync, $root, $bytes, $del)
 #  Interfaz
 # ------------------------------------------------------------------
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "$script:AppName - Diagnóstico y administración de unidades USB"
+$form.Text = "$script:AppName $script:AppVersion - Diagnóstico y administración de unidades USB"
 $form.Size = New-Object System.Drawing.Size((S 1220), (S 840))
 $form.MinimumSize = New-Object System.Drawing.Size((S 960), (S 640))
 $form.StartPosition = 'CenterScreen'
 $form.Font = $script:FontNormal
-try { $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\System32\DeviceProperties.exe") } catch {}
+try {
+    # Como .exe usa su propio icono; como script, uno del sistema
+    $hostExe = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if ($hostExe -notmatch 'powershell(_ise)?\.exe$') { $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($hostExe) }
+    else { $form.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon("$env:SystemRoot\System32\DeviceProperties.exe") }
+} catch {}
 $script:Form = $form
 
 function New-Grid {
@@ -1597,7 +1617,7 @@ function Export-Report {
 
 function Show-Help {
     $t = @"
-$script:AppName v1.0
+$script:AppName v$script:AppVersion - https://github.com/aarneth/PulsoUSB
 
 SALUD
  • El estado combina: estado de Windows del disco, SMART (si el dispositivo lo expone), contadores de confiabilidad, estado de los volúmenes y la última prueba de integridad.
