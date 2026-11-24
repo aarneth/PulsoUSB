@@ -56,3 +56,6 @@ Los archivos quedan en `dist\`.
 | `src/Setup.cs` | Instalador / desinstalador |
 | `src/app.manifest` | Solicita administrador y declara compatibilidad con Windows 10/11 |
 | `build.ps1` | Compila todo y genera el icono |
+
+## Licencia
+[MIT](LICENSE) © 2026 aarneth. Se ofrece "tal cual", sin garantía: respalda tus datos antes de formatear o modificar particiones.
